@@ -1,0 +1,236 @@
+<h2 class="sr-only">Construção passo a passo da função de onda plana, do movimento circular uniforme até y(x,t) = A cos(ωt − kx)</h2>
+<div style="display:flex; flex-direction:column; gap:1rem;">
+
+  <div style="display:flex; align-items:center; justify-content:space-between;">
+    <div style="font-size:13px; color:var(--text-secondary);" id="stage-label">Etapa 1 de 4 — A sombra do giro</div>
+    <div style="display:flex; gap:6px;" id="dots"></div>
+  </div>
+
+  <div style="text-align:center; font-size:19px; font-weight:500; padding:0.4rem 0;" id="eq-display">y = cos(θ)</div>
+
+  <svg id="stageSvg" width="100%" viewBox="0 0 680 260" role="img"><title>Construção da função de onda</title><desc>Animação da construção passo a passo da função de onda a partir do movimento circular uniforme</desc></svg>
+
+  <div id="slider-row" style="min-height:44px;"></div>
+
+  <div style="font-size:14px; color:var(--text-primary); background:var(--surface-1); border-radius:var(--radius); padding:0.65rem 0.85rem;" id="caption"></div>
+
+  <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+    <button id="prevBtn">← Anterior</button>
+    <button id="playBtn" style="width:100px;"><i class="ti ti-player-pause" aria-hidden="true" style="margin-right:6px;"></i>Pausar</button>
+    <button id="nextBtn">Próximo →</button>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  var svg = document.getElementById('stageSvg');
+  var stageLabel = document.getElementById('stage-label');
+  var eqDisplay = document.getElementById('eq-display');
+  var caption = document.getElementById('caption');
+  var sliderRow = document.getElementById('slider-row');
+  var dotsWrap = document.getElementById('dots');
+  var prevBtn = document.getElementById('prevBtn');
+  var nextBtn = document.getElementById('nextBtn');
+  var playBtn = document.getElementById('playBtn');
+
+  var NS = 'http://www.w3.org/2000/svg';
+  function elz(tag, attrs){
+    var e = document.createElementNS(NS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+
+  var stage = 1;
+  var ampR = 55;
+  var omega = 1.2;
+  var kVal = 0.8;
+  var playing = true;
+  var t0 = performance.now();
+  var elapsed = 0;
+  var refs = {};
+
+  var titles = [
+    'Etapa 1 de 4 — A sombra do giro',
+    'Etapa 2 de 4 — De onde vem a amplitude',
+    'Etapa 3 de 4 — De onde vem o tempo',
+    'Etapa 4 de 4 — Do ponto ao meio inteiro'
+  ];
+  var eqs = [
+    'y = cos(θ)',
+    'y = A·cos(θ)',
+    'y(t) = A·cos(ωt)',
+    'y(x,t) = A·cos(ωt − kx)'
+  ];
+  var captions = [
+    'Um ponto gira com velocidade angular constante. A sombra vertical desse ponto — sua projeção no eixo y — é, por definição, a função cosseno. Observe: giro constante gera oscilação.',
+    'Arraste o controle e mude o raio do giro. A sombra fica mais alta ou mais baixa, mas o ritmo do vaivém não muda. Esse fator que multiplica o cosseno — e só estica a curva verticalmente — é a amplitude A.',
+    'Agora controle a velocidade angular ω. O giro fica mais rápido ou mais lento, e o tempo entre um pico e o próximo (o período) muda — mas a altura da sombra continua a mesma. ω decide o ritmo no tempo.',
+    'Espalhe o mesmo giro por várias partículas ao longo de x. Cada uma vibra igual às anteriores, mas começa seu ciclo com um atraso proporcional à distância da origem. Ligando as partículas neste instante, a forma da onda aparece sozinha.'
+  ];
+
+  function buildDots(){
+    dotsWrap.innerHTML = '';
+    for (var i=1;i<=4;i++){
+      var d = document.createElement('div');
+      d.style.width = '8px'; d.style.height = '8px'; d.style.borderRadius = '50%';
+      d.style.cursor = 'pointer';
+      d.style.background = (i===stage) ? 'var(--text-accent)' : 'var(--border-strong)';
+      d.addEventListener('click', (function(n){ return function(){ goStage(n); }; })(i));
+      dotsWrap.appendChild(d);
+    }
+  }
+
+  function clearSvg(){ svg.innerHTML=''; refs = {}; }
+
+  function buildCircleStage(){
+    clearSvg();
+    var cx=120, cy=130, rMax=100;
+    refs.cx=cx; refs.cy=cy;
+    svg.appendChild(elz('circle',{cx:cx,cy:cy,r:rMax,fill:'none',stroke:'var(--border-subtle)','stroke-width':'1','stroke-dasharray':'2 4'}));
+    svg.appendChild(elz('line',{x1:cx-rMax-10,y1:cy,x2:cx+rMax+10,y2:cy,stroke:'var(--border-subtle)','stroke-width':'0.5'}));
+    svg.appendChild(elz('line',{x1:cx,y1:cy-rMax-10,x2:cx,y2:cy+rMax+10,stroke:'var(--border-subtle)','stroke-width':'0.5'}));
+    refs.radiusLine = elz('line',{stroke:'var(--text-accent)','stroke-width':'2'});
+    svg.appendChild(refs.radiusLine);
+    refs.circlePt = elz('circle',{r:6,fill:'var(--text-accent)'});
+    svg.appendChild(refs.circlePt);
+    refs.dashLine = elz('line',{stroke:'#D85A30','stroke-width':'0.5','stroke-dasharray':'3 3'});
+    svg.appendChild(refs.dashLine);
+    var wallX = 260;
+    svg.appendChild(elz('line',{x1:wallX,y1:20,x2:wallX,y2:240,stroke:'var(--border-strong)','stroke-width':'0.5'}));
+    svg.appendChild(elz('line',{x1:wallX,y1:cy,x2:650,y2:cy,stroke:'var(--border-strong)','stroke-width':'0.5'}));
+    var lab = elz('text',{x:650,y:cy+18,'text-anchor':'end',class:'ts',fill:'var(--text-secondary)'});
+    lab.textContent = 't \u2192';
+    svg.appendChild(lab);
+    refs.tracePath = elz('path',{fill:'none',stroke:'#D85A30','stroke-width':'2'});
+    svg.appendChild(refs.tracePath);
+    refs.injectDot = elz('circle',{r:5,fill:'#D85A30'});
+    svg.appendChild(refs.injectDot);
+    refs.wallX = wallX;
+  }
+
+  function updateCircleStage(){
+    var cx=refs.cx, cy=refs.cy;
+    var theta = omega*elapsed;
+    var px = cx + ampR*Math.sin(theta);
+    var py = cy - ampR*Math.cos(theta);
+    refs.radiusLine.setAttribute('x1',cx); refs.radiusLine.setAttribute('y1',cy);
+    refs.radiusLine.setAttribute('x2',px); refs.radiusLine.setAttribute('y2',py);
+    refs.circlePt.setAttribute('cx',px); refs.circlePt.setAttribute('cy',py);
+    var wallX = refs.wallX;
+    refs.dashLine.setAttribute('x1',px); refs.dashLine.setAttribute('y1',py);
+    refs.dashLine.setAttribute('x2',wallX); refs.dashLine.setAttribute('y2',py);
+    refs.injectDot.setAttribute('cx',wallX); refs.injectDot.setAttribute('cy',py);
+
+    var window_ = 6;
+    var N = 160;
+    var pts = [];
+    for (var j=0;j<=N;j++){
+      var tt = elapsed - window_*(j/N);
+      var yy = ampR*Math.cos(omega*tt);
+      var xx = wallX + (window_*(j/N)/window_)*(650-wallX);
+      pts.push((j===0?'M':'L')+xx.toFixed(1)+','+(cy-yy).toFixed(1));
+    }
+    refs.tracePath.setAttribute('d', pts.join(' '));
+  }
+
+  function buildChainStage(){
+    clearSvg();
+    var n=9, x0=70, x1=610, cy=130, spanY=90;
+    refs.n=n; refs.x0=x0; refs.x1=x1; refs.cy=cy; refs.spanY=spanY;
+    svg.appendChild(elz('line',{x1:30,y1:cy,x2:650,y2:cy,stroke:'var(--border-subtle)','stroke-width':'0.5'}));
+    var arrow = elz('text',{x:640,y:cy-70,'text-anchor':'end',class:'ts',fill:'var(--text-secondary)'});
+    arrow.textContent = 'sentido de propagação \u2192';
+    svg.appendChild(arrow);
+    refs.guides = []; refs.pdots = [];
+    for (var i=0;i<n;i++){
+      var g = elz('line',{stroke:'var(--border-subtle)','stroke-width':'1'});
+      svg.appendChild(g); refs.guides.push(g);
+    }
+    refs.envelope = elz('path',{fill:'none',stroke:'var(--text-accent)','stroke-width':'1.5','opacity':'0.55'});
+    svg.appendChild(refs.envelope);
+    for (var i2=0;i2<n;i2++){
+      var pdot = elz('circle',{r:7,fill: i2===0 ? 'var(--text-accent)' : '#D85A30'});
+      svg.appendChild(pdot); refs.pdots.push(pdot);
+    }
+  }
+
+  function updateChainStage(){
+    var n=refs.n, x0=refs.x0, x1=refs.x1, cy=refs.cy, spanY=refs.spanY;
+    var envPts = [];
+    for (var i=0;i<n;i++){
+      var xi = x0 + (x1-x0)*(i/(n-1));
+      var yi = ampR/100*spanY*Math.cos(omega*elapsed - kVal*i);
+      var py = cy - yi;
+      refs.guides[i].setAttribute('x1',xi); refs.guides[i].setAttribute('y1',cy);
+      refs.guides[i].setAttribute('x2',xi); refs.guides[i].setAttribute('y2',py);
+      refs.pdots[i].setAttribute('cx',xi); refs.pdots[i].setAttribute('cy',py);
+      envPts.push((i===0?'M':'L')+xi.toFixed(1)+','+py.toFixed(1));
+    }
+    refs.envelope.setAttribute('d', envPts.join(' '));
+  }
+
+  function buildSliderRow(){
+    sliderRow.innerHTML = '';
+    if (stage===2){
+      sliderRow.innerHTML =
+        '<div style="display:flex; justify-content:space-between; font-size:13px; color:var(--text-secondary); margin-bottom:4px;">'+
+        '<label for="r-slider">Raio do giro (→ amplitude A)</label><span id="r-out"></span></div>'+
+        '<input type="range" id="r-slider" min="20" max="100" step="1" style="width:100%;">';
+      var rS = document.getElementById('r-slider');
+      rS.value = ampR;
+      document.getElementById('r-out').textContent = ampR + ' px';
+      rS.addEventListener('input', function(){ ampR = parseFloat(rS.value); document.getElementById('r-out').textContent = ampR + ' px'; });
+    } else if (stage===3){
+      sliderRow.innerHTML =
+        '<div style="display:flex; justify-content:space-between; font-size:13px; color:var(--text-secondary); margin-bottom:4px;">'+
+        '<label for="w-slider">Velocidade angular ω</label><span id="w-out"></span></div>'+
+        '<input type="range" id="w-slider" min="0.5" max="4" step="0.1" style="width:100%;">';
+      var wS = document.getElementById('w-slider');
+      wS.value = omega;
+      document.getElementById('w-out').textContent = omega.toFixed(1) + ' rad/s  (T = ' + (2*Math.PI/omega).toFixed(1) + ' s)';
+      wS.addEventListener('input', function(){ omega = parseFloat(wS.value); document.getElementById('w-out').textContent = omega.toFixed(1) + ' rad/s  (T = ' + (2*Math.PI/omega).toFixed(1) + ' s)'; });
+    } else if (stage===4){
+      sliderRow.innerHTML =
+        '<div style="display:flex; justify-content:space-between; font-size:13px; color:var(--text-secondary); margin-bottom:4px;">'+
+        '<label for="k-slider">Atraso de fase entre partículas vizinhas (→ k)</label><span id="k-out"></span></div>'+
+        '<input type="range" id="k-slider" min="0.3" max="2" step="0.05" style="width:100%;">';
+      var kS = document.getElementById('k-slider');
+      kS.value = kVal;
+      document.getElementById('k-out').textContent = kVal.toFixed(2) + ' rad';
+      kS.addEventListener('input', function(){ kVal = parseFloat(kS.value); document.getElementById('k-out').textContent = kVal.toFixed(2) + ' rad'; });
+    }
+  }
+
+  function goStage(n){
+    stage = Math.max(1, Math.min(4, n));
+    stageLabel.textContent = titles[stage-1];
+    eqDisplay.textContent = eqs[stage-1];
+    caption.textContent = captions[stage-1];
+    buildDots();
+    buildSliderRow();
+    prevBtn.disabled = (stage===1);
+    nextBtn.disabled = (stage===4);
+    if (stage<=3){ buildCircleStage(); } else { buildChainStage(); }
+  }
+
+  function tick(now){
+    if (playing) elapsed += (now-t0)/1000;
+    t0 = now;
+    if (stage<=3){ updateCircleStage(); } else { updateChainStage(); }
+    requestAnimationFrame(tick);
+  }
+
+  prevBtn.addEventListener('click', function(){ goStage(stage-1); });
+  nextBtn.addEventListener('click', function(){ goStage(stage+1); });
+  playBtn.addEventListener('click', function(){
+    playing = !playing;
+    playBtn.innerHTML = playing
+      ? '<i class="ti ti-player-pause" aria-hidden="true" style="margin-right:6px;"></i>Pausar'
+      : '<i class="ti ti-player-play" aria-hidden="true" style="margin-right:6px;"></i>Tocar';
+  });
+
+  goStage(1);
+  requestAnimationFrame(tick);
+})();
+</script>
